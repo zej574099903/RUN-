@@ -1,0 +1,25 @@
+# Xcode
+#
+build/
+DerivedData/
+*.hmap
+*.ipa
+*.playground
+*.xcuserstate
+
+# xcodegen
+#
+*.xcodeproj
+
+# macOS
+#
+.DS_Store
+
+# Swift Package Manager
+#
+.build/
+.swiftpm
+
+# DeepSeek API Key (Safety)
+#
+# 虽然我们在代码里写了 key，但建议以后通过环境变量管理
