@@ -1,10 +1,10 @@
 import SwiftUI
 
 struct MainTabView: View {
+    // 将选中 Tab 提升到 State，以便子页面可以修改它
     @State private var selectedTab = 0
     
     init() {
-        // 自定义底栏样式，匹配我们的简约高级感
         let appearance = UITabBarAppearance()
         appearance.configureWithDefaultBackground()
         appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
@@ -14,7 +14,7 @@ struct MainTabView: View {
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            ContentView()
+            ContentView(selectedTab: $selectedTab)
                 .tabItem {
                     Label("看板", systemImage: "square.grid.2x2.fill")
                 }
@@ -38,10 +38,6 @@ struct MainTabView: View {
                 }
                 .tag(3)
         }
-        .accentColor(.primary) // 使用主色调作为激活颜色
+        .accentColor(.primary)
     }
-}
-
-#Preview {
-    MainTabView()
 }
