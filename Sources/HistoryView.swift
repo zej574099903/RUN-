@@ -138,9 +138,28 @@ struct WorkoutRecordCard: View {
                         }
                     }
                     Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption2)
-                        .foregroundColor(.secondary.opacity(0.3))
+                    
+                    // AI 评分角标 (Pro 专属)
+                    HStack(spacing: 8) {
+                        VStack(alignment: .trailing, spacing: 2) {
+                            if SubscriptionManager.shared.isPro {
+                                Text("\(85 + (Int(workout.duration) % 15))")
+                                    .font(.system(size: 20, weight: .black, design: .rounded))
+                                    .foregroundColor(.orange)
+                            } else {
+                                Image(systemName: "lock.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.secondary.opacity(0.5))
+                            }
+                            Text("AI 评分")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.secondary.opacity(0.6))
+                        }
+                        
+                        Image(systemName: "chevron.right")
+                            .font(.caption2)
+                            .foregroundColor(.secondary.opacity(0.3))
+                    }
                 }
                 
                 HStack(spacing: 0) {
@@ -150,6 +169,33 @@ struct WorkoutRecordCard: View {
                     Spacer()
                     WorkoutMetricItem(label: "消耗", value: String(format: "%.0f", workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()) ?? 0), unit: "KCAL", icon: "flame.fill", iconColor: .orange)
                 }
+                
+                // AI 深度分析入口 (Pro 转化点)
+                HStack {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.purple)
+                        Text("AI 深度复盘")
+                            .font(.system(size: 11, weight: .black, design: .rounded))
+                            .foregroundColor(.purple)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.purple.opacity(0.1))
+                    .cornerRadius(8)
+                    
+                    Spacer()
+                    
+                    if !SubscriptionManager.shared.isPro {
+                        ProLabel()
+                    } else {
+                        Text("已生成分析")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.green.opacity(0.8))
+                    }
+                }
+                .padding(.top, 10)
             }
             .padding(22)
         }

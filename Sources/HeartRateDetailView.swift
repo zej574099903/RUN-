@@ -8,7 +8,7 @@ struct HeartRateDetailView: View {
     @State private var isLoading = true // 增加加载状态
     
     // 基础参数
-    private var maxHR_Limit: Double { Double(220 - healthManager.userAge) }
+    private var maxHR_Limit: Double { Double(220 - healthManager.biologicalAge) }
     private var currentHR: Double { healthManager.heartRate }
     
     // 今日统计

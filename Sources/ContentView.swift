@@ -13,13 +13,12 @@ struct ContentView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 25) {
                         headerSection
+                        
+                        // 目标进度概览 (灵魂注入)
+                        GoalProgressCard()
+                        
                         NavigationLink(destination: ActivityInsightView()) {
                             MainActivityRingCard()
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        
-                        NavigationLink(destination: HeartRateDetailView()) {
-                            HeartRateCard()
                         }
                         .buttonStyle(PlainButtonStyle())
                         
@@ -74,8 +73,12 @@ struct DailyHubView: View {
     @Binding var stepGoal: Double
     @State private var isEditingGoal = false
     
+    private var todaySteps: Int {
+        Int(healthManager.weeklySteps.last ?? 0)
+    }
+    
     @MainActor private var shareImage: Image {
-        let renderer = ImageRenderer(content: ShareCardView(steps: 3051, goal: Int(stepGoal)))
+        let renderer = ImageRenderer(content: ShareCardView(steps: todaySteps, goal: Int(stepGoal)))
         renderer.scale = 3.0
         if let uiImage = renderer.uiImage { return Image(uiImage: uiImage) }
         return Image(systemName: "photo")
@@ -89,7 +92,7 @@ struct DailyHubView: View {
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("下午好，\(healthManager.nickname)").font(.headline)
-                    Text("加油！今日目标已完成 32%").font(.subheadline).foregroundColor(.secondary)
+                    Text("加油！今日目标已完成 \(Int(Double(todaySteps) / max(stepGoal, 1.0) * 100))%").font(.subheadline).foregroundColor(.secondary)
                 }
                 Spacer()
             }.padding(.top, 30)
@@ -157,7 +160,7 @@ struct ShareCardView: View {
             HStack(spacing: 15) {
                 CardMetric(label: "累计消耗", value: "324", unit: "KCAL")
                 CardMetric(label: "运动里程", value: "2.8", unit: "KM")
-                CardMetric(label: "达成目标", value: "\(Int(Double(steps)/Double(goal)*100))", unit: "%")
+                CardMetric(label: "达成目标", value: "\(Int(Double(steps)/Double(max(goal, 1))*100))", unit: "%")
             }.padding(.horizontal, 30)
             Spacer()
             HStack {
@@ -215,15 +218,21 @@ struct QuickActionButton: View {
     }
 }
 struct StepsCard: View {
+    @EnvironmentObject var healthManager: HealthKitManager
     let goal: Double
+    
+    var currentSteps: Int {
+        Int(healthManager.weeklySteps.last ?? 0)
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
             Text("今日运动步数").font(.headline).foregroundColor(.secondary)
             HStack(alignment: .bottom, spacing: 5) {
-                Text("3051").font(.system(size: 50, weight: .black, design: .rounded))
+                Text("\(currentSteps)").font(.system(size: 50, weight: .black, design: .rounded))
                 Text("/ \(Int(goal)) 目标").font(.subheadline).bold().foregroundColor(.secondary).padding(.bottom, 8)
             }
-            ProgressView(value: 3051 / goal).tint(.green).scaleEffect(x: 1, y: 3, anchor: .center)
+            ProgressView(value: Double(currentSteps) / max(goal, 1.0)).tint(.green).scaleEffect(x: 1, y: 3, anchor: .center)
         }.padding(25).background(.ultraThinMaterial).cornerRadius(35)
     }
 }
@@ -236,39 +245,48 @@ struct MainActivityRingCard: View {
     }
     
     var body: some View {
-        HStack {
+        HStack(spacing: 0) {
             // 左侧：圆环 (基于真实进度)
             ZStack {
                 Circle()
-                    .stroke(Color.green.opacity(0.1), lineWidth: 16)
-                    .frame(width: 140, height: 140)
+                    .stroke(Color.green.opacity(0.1), lineWidth: 14)
+                    .frame(width: 120, height: 120)
                 Circle()
                     .trim(from: 0, to: progress)
                     .stroke(
                         LinearGradient(colors: [.green, .cyan], startPoint: .top, endPoint: .bottom),
-                        style: StrokeStyle(lineWidth: 16, lineCap: .round)
+                        style: StrokeStyle(lineWidth: 14, lineCap: .round)
                     )
-                    .frame(width: 140, height: 140)
+                    .frame(width: 120, height: 120)
                     .rotationEffect(.degrees(-90))
-                    .animation(.spring(response: 1.0, dampingFraction: 0.8), value: progress)
                 
-                Image(systemName: "figure.walk")
-                    .font(.title2)
-                    .foregroundColor(.green)
+                VStack(spacing: 2) {
+                    Image(systemName: "figure.run")
+                        .font(.title3)
+                        .foregroundColor(.green)
+                    Text("\(Int(progress * 100))%")
+                        .font(.system(size: 14, weight: .black, design: .rounded))
+                }
             }
+            .padding(.trailing, 10)
             
-            Spacer() // 核心：将左右两部分推向边缘
+            Spacer()
             
-            // 右侧：数据 (改为右对齐，增加呼吸感)
-            VStack(alignment: .trailing, spacing: 18) {
+            // 右侧：三宫格 (里程 + 消耗 + 心率)
+            VStack(alignment: .trailing, spacing: 14) {
                 MetricRow(label: "累计消耗", value: String(format: "%.0f", healthManager.todayCalories), unit: "KCAL", icon: "flame.fill", color: .orange, isRightAligned: true)
                 MetricRow(label: "运动里程", value: String(format: "%.2f", healthManager.todayDistance), unit: "KM", icon: "paperplane.fill", color: .blue, isRightAligned: true)
+                MetricRow(label: "实时心率", value: healthManager.heartRate > 0 ? "\(Int(healthManager.heartRate))" : "--", unit: "BPM", icon: "heart.fill", color: .red, isRightAligned: true)
             }
         }
         .padding(25)
-        .frame(maxWidth: .infinity) // 强制撑满宽度
+        .frame(maxWidth: .infinity)
         .background(.ultraThinMaterial)
         .cornerRadius(35)
+        .overlay(
+            RoundedRectangle(cornerRadius: 35)
+                .stroke(Color.white.opacity(0.2), lineWidth: 1)
+        )
     }
 }
 struct HeartRateCard: View {
@@ -338,6 +356,174 @@ struct MetricRow: View {
                     }
                 }
             }
+        }
+    }
+}
+
+// MARK: - 目标进度卡片 (高级玻璃拟态版)
+struct GoalProgressCard: View {
+    @EnvironmentObject var healthManager: HealthKitManager
+    @State private var showGoalSetting = false
+    
+    var body: some View {
+        Button(action: { showGoalSetting = true }) {
+            VStack(spacing: 18) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("本月目标进度").font(.system(size: 13, weight: .bold)).foregroundColor(.secondary)
+                        HStack(alignment: .lastTextBaseline, spacing: 5) {
+                            Text(String(format: "%.1f", healthManager.currentMonthDistance))
+                                .font(.system(size: 34, weight: .black, design: .rounded))
+                            Text("/ \(Int(healthManager.monthlyDistanceGoal)) KM")
+                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    Spacer()
+                    Image(systemName: "flag.checkered.2.crossed")
+                        .font(.title)
+                        .foregroundColor(.blue.opacity(0.8))
+                        .padding(12)
+                        .background(Circle().fill(Color.blue.opacity(0.1)))
+                }
+                
+                // 高级横向进度条
+                VStack(spacing: 8) {
+                    let progress = min(healthManager.currentMonthDistance / max(healthManager.monthlyDistanceGoal, 1), 1)
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.primary.opacity(0.05)).frame(height: 10)
+                            Capsule()
+                                .fill(LinearGradient(colors: [.blue, .cyan], startPoint: .leading, endPoint: .trailing))
+                                .frame(width: geo.size.width * CGFloat(progress), height: 10)
+                                .shadow(color: .blue.opacity(0.3), radius: 5, x: 0, y: 3)
+                        }
+                    }.frame(height: 10)
+                    
+                    HStack {
+                        Text("\(Int(progress * 100))% 已完成").font(.system(size: 11, weight: .bold)).foregroundColor(.blue)
+                        Spacer()
+                        if healthManager.runningGoal == "减脂瘦身" {
+                            let weightDiff = healthManager.userWeight - healthManager.targetWeight
+                            Text(weightDiff > 0 ? "目标减重: \(String(format: "%.1f", weightDiff)) KG" : "体重目标已达成")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            }
+            .padding(25)
+            .background(.ultraThinMaterial) // 玻璃质感
+            .cornerRadius(30)
+            .overlay(
+                RoundedRectangle(cornerRadius: 30)
+                    .stroke(LinearGradient(colors: [.white.opacity(0.5), .clear], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+        .sheet(isPresented: $showGoalSetting) {
+            GoalSettingView(healthManager: healthManager)
+                .presentationDetents([.height(550)])
+                .presentationDragIndicator(.visible)
+        }
+    }
+}
+
+// MARK: - 目标设置中心 (整合版)
+struct GoalSettingView: View {
+    @Environment(\.dismiss) var dismiss
+    @ObservedObject var healthManager: HealthKitManager
+    
+    var body: some View {
+        NavigationView {
+            ZStack {
+                MeshBackgroundView()
+                ScrollView {
+                    VStack(spacing: 30) {
+                        // 1. 月度里程目标
+                        VStack(alignment: .leading, spacing: 20) {
+                            HStack {
+                                Image(systemName: "figure.run").foregroundColor(.blue)
+                                Text("月度跑量目标").font(.headline)
+                                Spacer()
+                                Text("\(Int(healthManager.monthlyDistanceGoal)) KM").font(.system(.title3, design: .rounded)).bold()
+                            }
+                            
+                            Slider(value: $healthManager.monthlyDistanceGoal, in: 20...500, step: 10)
+                                .accentColor(.blue)
+                            
+                            Text("设定一个挑战性的跑量，AI 将根据此目标为你安排本周训练强度。")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(25)
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(30)
+                        
+                        // 2. 体重目标
+                        VStack(alignment: .leading, spacing: 20) {
+                            HStack {
+                                Image(systemName: "scalemass.fill").foregroundColor(.green)
+                                Text("目标体重").font(.headline)
+                                Spacer()
+                                Text(String(format: "%.1f KG", healthManager.targetWeight)).font(.system(.title3, design: .rounded)).bold()
+                            }
+                            
+                            Slider(value: $healthManager.targetWeight, in: 40...150, step: 0.5)
+                                .accentColor(.green)
+                            
+                            HStack {
+                                Text("当前: \(String(format: "%.1f", healthManager.userWeight)) KG")
+                                Spacer()
+                                let diff = healthManager.userWeight - healthManager.targetWeight
+                                Text(diff > 0 ? "还需减重 \(String(format: "%.1f", diff)) KG" : "已达成目标！")
+                                    .foregroundColor(diff > 0 ? .orange : .green)
+                            }
+                            .font(.caption.bold())
+                        }
+                        .padding(25)
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(30)
+                        
+                        // 3. AI 建议
+                        VStack(alignment: .leading, spacing: 15) {
+                            Label("AI 建议", systemImage: "sparkles")
+                                .font(.headline)
+                                .foregroundColor(.purple)
+                            
+                            Text(getGoalAdvice())
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .lineSpacing(5)
+                        }
+                        .padding(25)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.purple.opacity(0.05))
+                        .cornerRadius(30)
+                        
+                        Spacer(minLength: 50)
+                    }
+                    .padding(20)
+                }
+            }
+            .navigationTitle("目标中心")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("完成") { dismiss() }
+                        .fontWeight(.bold)
+                }
+            }
+        }
+    }
+    
+    private func getGoalAdvice() -> String {
+        if healthManager.runningGoal == "减脂瘦身" {
+            return "为了达成目标，建议每周加入 2 次力量训练以提高基础代谢。"
+        } else if healthManager.monthlyDistanceGoal > 200 {
+            return "每月跑量较高，请关注跑鞋寿命及足底筋膜的日常放松。"
+        } else {
+            return "合理的目标是成功的开始，AI 将协助你稳定推进。"
         }
     }
 }

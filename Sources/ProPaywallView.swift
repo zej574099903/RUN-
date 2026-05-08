@@ -3,337 +3,189 @@ import SwiftUI
 struct ProPaywallView: View {
     @Environment(\.dismiss) var dismiss
     @StateObject private var subManager = SubscriptionManager.shared
-    @State private var selectedPlan: Int = 1 // 0=健康版, 1=教练版
-    @State private var isAnimating = false
+    @State private var selectedPlan: SubscriptionManager.PlanType = .monthly
     
-    private let features: [(icon: String, color: Color, title: String, health: Bool, coach: Bool)] = [
-        ("chart.line.uptrend.xyaxis", .blue, "AI 进步周报", true, true),
-        ("heart.text.square.fill", .red, "心率安全预警", true, true),
-        ("figure.run.circle.fill", .orange, "个性化训练计划", false, true),
-        ("trophy.fill", .yellow, "比赛备战模式", false, true),
-        ("message.badge.waveform.fill", .purple, "AI 教练对话", false, true)
+    private let proFeatures: [(icon: String, color: Color, title: String, subtitle: String)] = [
+        ("sparkles", .purple, "AI 运动深度复盘", "每一场运动都有专业教练点评"),
+        ("chart.bar.fill", .blue, "跑步能力雷达图", "全方位评估你的耐力与爆发力"),
+        ("bolt.heart.fill", .red, "状态与疲劳监控", "科学预防受伤，掌握身体节奏"),
+        ("calendar.badge.checkmark", .green, "AI 科学训练处方", "基于你的体能状态量身定制")
     ]
     
     var body: some View {
         ZStack {
             // 背景渐变
-            LinearGradient(
-                colors: [
-                    Color(red: 0.05, green: 0.05, blue: 0.15),
-                    Color(red: 0.08, green: 0.05, blue: 0.20),
-                    Color(red: 0.05, green: 0.10, blue: 0.18)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-            
-            // 装饰光晕
-            Circle()
-                .fill(Color.blue.opacity(0.15))
-                .frame(width: 300, height: 300)
-                .blur(radius: 80)
-                .offset(x: -100, y: -200)
-            
-            Circle()
-                .fill(Color.purple.opacity(0.12))
-                .frame(width: 250, height: 250)
-                .blur(radius: 60)
-                .offset(x: 120, y: 100)
+            Color(red: 0.05, green: 0.05, blue: 0.1).ignoresSafeArea()
             
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 30) {
-                    // 顶部标题区
-                    headerSection
-                    
-                    // 付费功能列表
-                    featuresListSection
-                    
-                    // 套餐选择
-                    planPickerSection
-                    
-                    // 订阅按钮
-                    subscribeButtonSection
-                    
-                    // 底部说明
-                    footerSection
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 20)
-                .padding(.bottom, 50)
-            }
-        }
-    }
-    
-    // MARK: - Subviews
-    
-    private var headerSection: some View {
-        VStack(spacing: 16) {
-            // 关闭按钮
-            HStack {
-                Spacer()
-                Button(action: { dismiss() }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.title2)
-                        .foregroundColor(.white.opacity(0.4))
-                }
-            }
-            
-            // 皇冠图标
-            ZStack {
-                Circle()
-                    .fill(LinearGradient(colors: [.yellow.opacity(0.3), .orange.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(width: 80, height: 80)
-                    .blur(radius: 2)
-                
-                Image(systemName: "crown.fill")
-                    .font(.system(size: 36))
-                    .foregroundStyle(LinearGradient(colors: [.yellow, .orange], startPoint: .top, endPoint: .bottom))
-            }
-            
-            VStack(spacing: 8) {
-                Text("Run+ Pro")
-                    .font(.system(size: 34, weight: .black, design: .rounded))
-                    .foregroundColor(.white)
-                
-                Text("解锁你的体能天花板\n成为更科学的跑者")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.white.opacity(0.65))
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(4)
-            }
-        }
-    }
-    
-    private var featuresListSection: some View {
-        VStack(spacing: 0) {
-            // 表头
-            HStack {
-                Spacer()
-                Text("健康版")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.white.opacity(0.8))
-                    .frame(width: 60)
-                Text("教练版")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.yellow)
-                    .frame(width: 60)
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
-            
-            // 功能对比行
-            ForEach(features, id: \.title) { feature in
-                HStack(spacing: 12) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(feature.color.opacity(0.15))
-                            .frame(width: 36, height: 36)
-                        Image(systemName: feature.icon)
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(feature.color)
-                    }
-                    
-                    Text(feature.title)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
-                    
-                    Spacer()
-                    
-                    // 健康版标识
-                    Group {
-                        if feature.health {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                        } else {
-                            Image(systemName: "minus.circle.fill")
-                                .foregroundColor(.white.opacity(0.15))
+                    // 顶部关闭按钮 (调整位置)
+                    HStack {
+                        Spacer()
+                        Button(action: { dismiss() }) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(.white.opacity(0.3))
+                                .padding(10)
+                                .background(Color.white.opacity(0.1))
+                                .clipShape(Circle())
                         }
                     }
-                    .font(.system(size: 18))
-                    .frame(width: 60)
+                    .padding(.top, 10)
                     
-                    // 教练版标识
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.yellow)
-                        .font(.system(size: 18))
-                        .frame(width: 60)
+                    // 标题区
+                    VStack(spacing: 12) {
+                        ZStack {
+                            Circle().fill(Color.orange.opacity(0.2)).frame(width: 80, height: 80).blur(radius: 10)
+                            Image(systemName: "crown.fill")
+                                .font(.system(size: 40))
+                                .foregroundStyle(LinearGradient(colors: [.yellow, .orange], startPoint: .top, endPoint: .bottom))
+                        }
+                        
+                        Text("升级 RunPlus Pro")
+                            .font(.system(size: 32, weight: .black, design: .rounded))
+                            .foregroundColor(.white)
+                        
+                        Text("开启你的科学跑步之旅")
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+                    
+                    // 功能清单
+                    VStack(alignment: .leading, spacing: 20) {
+                        ForEach(proFeatures, id: \.title) { feature in
+                            HStack(spacing: 16) {
+                                Image(systemName: feature.icon)
+                                    .font(.title3)
+                                    .foregroundColor(feature.color)
+                                    .frame(width: 32)
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(feature.title).font(.system(size: 16, weight: .bold)).foregroundColor(.white)
+                                    Text(feature.subtitle).font(.system(size: 13)).foregroundColor(.white.opacity(0.5))
+                                }
+                            }
+                        }
+                    }
+                    .padding(25)
+                    .background(Color.white.opacity(0.05))
+                    .cornerRadius(25)
+                    
+                    // 订阅选项
+                    VStack(spacing: 15) {
+                        HStack(spacing: 12) {
+                            PlanCard(plan: .monthly, price: "¥15", period: "/月", isSelected: selectedPlan == .monthly, badge: "7天免费试用")
+                                .onTapGesture { withAnimation { selectedPlan = .monthly } }
+                            
+                            PlanCard(plan: .yearly, price: "¥128", period: "/年", isSelected: selectedPlan == .yearly)
+                                .onTapGesture { withAnimation { selectedPlan = .yearly } }
+                        }
+                        
+                        // 终身版
+                        LifetimePlanCard(isSelected: selectedPlan == .lifetime)
+                            .onTapGesture { withAnimation { selectedPlan = .lifetime } }
+                    }
+                    
+                    // 订阅按钮
+                    Button(action: {
+                        Task {
+                            try? await subManager.purchasePro()
+                            dismiss()
+                        }
+                    }) {
+                        Text(selectedPlan == .monthly ? "开始 7 天免费试用" : "立即升级")
+                            .font(.system(size: 18, weight: .black))
+                            .foregroundColor(.black)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 60)
+                            .background(LinearGradient(colors: [.yellow, .orange], startPoint: .leading, endPoint: .trailing))
+                            .cornerRadius(20)
+                            .shadow(color: .orange.opacity(0.3), radius: 10, x: 0, y: 5)
+                    }
+                    .padding(.top, 10)
+                    
+                    // 底部声明与恢复购买 (弱化处理)
+                    VStack(spacing: 10) {
+                        HStack(spacing: 15) {
+                            Button("恢复购买") {
+                                Task {
+                                    await subManager.restorePurchases()
+                                }
+                            }
+                            Text("|").opacity(0.2)
+                            Button("服务条款") { }
+                            Text("|").opacity(0.2)
+                            Button("隐私政策") { }
+                        }
+                        .font(.system(size: 11))
+                        .foregroundColor(.white.opacity(0.4))
+                        
+                        Text("确认购买后，费用将从您的 iTunes 账户扣除。\n您可以随时在账户设置中管理或取消订阅。")
+                            .font(.system(size: 10))
+                            .foregroundColor(.white.opacity(0.2))
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(4)
+                    }
+                    
+                    Spacer(minLength: 30)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(
-                    feature.health ? Color.clear : Color.yellow.opacity(0.04)
-                )
-                
-                if feature.title != features.last?.title {
-                    Divider().background(Color.white.opacity(0.07)).padding(.leading, 64)
-                }
+                .padding(.horizontal, 25)
             }
         }
-        .background(Color.white.opacity(0.06))
-        .cornerRadius(20)
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
-        )
-    }
-    
-    private var planPickerSection: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 12) {
-                // 健康版
-                PlanCard(
-                    name: "健康版",
-                    price: "¥18",
-                    period: "/月",
-                    isSelected: selectedPlan == 0,
-                    badge: nil
-                )
-                .onTapGesture { withAnimation(.spring()) { selectedPlan = 0 } }
-                
-                // 教练版（推荐）
-                PlanCard(
-                    name: "教练版",
-                    price: "¥38",
-                    period: "/月",
-                    isSelected: selectedPlan == 1,
-                    badge: "推荐"
-                )
-                .onTapGesture { withAnimation(.spring()) { selectedPlan = 1 } }
-            }
-            
-            // 年付选项
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("年付教练版 · ¥198/年")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.white)
-                    Text("相当于每月 ¥16.5，比月付省 55%")
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.5))
-                }
-                Spacer()
-                Image(systemName: selectedPlan == 2 ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(selectedPlan == 2 ? .green : .white.opacity(0.3))
-            }
-            .padding(16)
-            .background(
-                selectedPlan == 2
-                    ? LinearGradient(colors: [.green.opacity(0.2), .blue.opacity(0.1)], startPoint: .leading, endPoint: .trailing)
-                    : LinearGradient(colors: [Color.white.opacity(0.06)], startPoint: .leading, endPoint: .trailing)
-            )
-            .cornerRadius(18)
-            .overlay(
-                RoundedRectangle(cornerRadius: 18)
-                    .stroke(selectedPlan == 2 ? Color.green.opacity(0.5) : Color.white.opacity(0.08), lineWidth: 1)
-            )
-            .onTapGesture { withAnimation(.spring()) { selectedPlan = 2 } }
-        }
-    }
-    
-    private var subscribeButtonSection: some View {
-        VStack(spacing: 14) {
-            Button(action: handleSubscribe) {
-                HStack {
-                    Image(systemName: "crown.fill").font(.system(size: 16))
-                    Text(subscribeButtonText)
-                        .font(.system(size: 18, weight: .black))
-                }
-                .foregroundColor(.black)
-                .frame(maxWidth: .infinity)
-                .frame(height: 58)
-                .background(
-                    LinearGradient(
-                        colors: [.yellow, .orange],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .cornerRadius(18)
-                .shadow(color: .orange.opacity(0.4), radius: 15, x: 0, y: 8)
-            }
-            
-            Button("恢复购买") {
-                subManager.restore()
-            }
-            .font(.system(size: 13))
-            .foregroundColor(.white.opacity(0.4))
-        }
-    }
-    
-    private var footerSection: some View {
-        Text("订阅将自动续费，可随时在「App Store」→「账户」中取消。\n订阅即表示你同意我们的用户协议与隐私政策。")
-            .font(.system(size: 11))
-            .foregroundColor(.white.opacity(0.3))
-            .multilineTextAlignment(.center)
-            .lineSpacing(4)
-    }
-    
-    // MARK: - Helpers
-    
-    private var subscribeButtonText: String {
-        switch selectedPlan {
-        case 0: return "订阅健康版 ¥18/月"
-        case 1: return "订阅教练版 ¥38/月"
-        case 2: return "订阅年付版 ¥198/年"
-        default: return "立即订阅"
-        }
-    }
-    
-    private func handleSubscribe() {
-        let plan: SubscriptionManager.PlanType = selectedPlan == 0 ? .health : .coach
-        subManager.subscribe(plan: plan)
-        dismiss()
     }
 }
 
-// MARK: - Plan Card Component
-
 struct PlanCard: View {
-    let name: String
+    let plan: SubscriptionManager.PlanType
     let price: String
     let period: String
     let isSelected: Bool
-    let badge: String?
+    var badge: String? = nil
     
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             if let badge = badge {
                 Text(badge)
-                    .font(.system(size: 10, weight: .black))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.black)
-                    .padding(.horizontal, 10)
+                    .padding(.horizontal, 8)
                     .padding(.vertical, 3)
                     .background(Color.yellow)
-                    .cornerRadius(20)
-            } else {
-                Spacer().frame(height: 20)
+                    .cornerRadius(5)
             }
             
-            Text(name)
+            Text(plan.rawValue)
                 .font(.system(size: 14, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(.white.opacity(0.8))
             
             HStack(alignment: .lastTextBaseline, spacing: 2) {
-                Text(price)
-                    .font(.system(size: 26, weight: .black, design: .rounded))
-                    .foregroundColor(.white)
-                Text(period)
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.5))
+                Text(price).font(.system(size: 28, weight: .black, design: .rounded)).foregroundColor(.white)
+                Text(period).font(.caption).foregroundColor(.white.opacity(0.5))
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 18)
-        .background(
-            isSelected
-                ? LinearGradient(colors: [.yellow.opacity(0.15), .orange.opacity(0.1)], startPoint: .top, endPoint: .bottom)
-                : LinearGradient(colors: [Color.white.opacity(0.06)], startPoint: .top, endPoint: .bottom)
-        )
-        .cornerRadius(18)
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(isSelected ? Color.yellow.opacity(0.6) : Color.white.opacity(0.08), lineWidth: isSelected ? 1.5 : 1)
-        )
+        .padding(.vertical, 20)
+        .background(isSelected ? Color.orange.opacity(0.15) : Color.white.opacity(0.06))
+        .cornerRadius(20)
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(isSelected ? Color.orange : Color.white.opacity(0.1), lineWidth: 2))
+    }
+}
+
+struct LifetimePlanCard: View {
+    let isSelected: Bool
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("终身专业版").font(.system(size: 16, weight: .bold)).foregroundColor(.white)
+                Text("一次性付费，永久解锁所有功能").font(.system(size: 12)).foregroundColor(.white.opacity(0.5))
+            }
+            Spacer()
+            Text("¥288").font(.system(size: 24, weight: .black, design: .rounded)).foregroundColor(.white)
+        }
+        .padding(20)
+        .background(isSelected ? Color.orange.opacity(0.15) : Color.white.opacity(0.06))
+        .cornerRadius(20)
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(isSelected ? Color.orange : Color.white.opacity(0.1), lineWidth: 2))
     }
 }

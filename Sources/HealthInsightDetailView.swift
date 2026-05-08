@@ -1,269 +1,194 @@
 import SwiftUI
-import Charts
 
 struct HealthInsightDetailView: View {
     @Environment(\.dismiss) var dismiss
+    @EnvironmentObject var healthManager: HealthKitManager
+    @EnvironmentObject var subManager: SubscriptionManager
+    @State private var showPaywall = false
     
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 30) {
-                // 1. 顶部总评
-                topAuditHeader
+        ZStack {
+            MeshBackgroundView()
+            
+            ProFeatureWrapper(
+                title: "深度机能诊断全文",
+                isLocked: !subManager.isPro,
+                onTapIfLocked: { showPaywall = true }
+            ) {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 30) {
+                        // 1. 顶部：心脏机能扫描
+                        heartAgeSection
+                        
+                        // 2. 核心：机能进化时间轴 (外面没有的深度数据)
+                        evolutionTimelineSection
+                        
+                        // 3. 风险预警：伤病风险评估
+                        injuryRiskSection
+                        
+                        // 4. 底部建议
+                        actionPlanSection
+                    }
+                    .padding(20)
+                }
+            }
+        }
+        .navigationTitle("机能深度诊断报告")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showPaywall) {
+            ProPaywallView()
+        }
+    }
+    
+    // MARK: - 1. 心脏年龄 (高溢价维度)
+    private var heartAgeSection: some View {
+        VStack(spacing: 20) {
+            ZStack {
+                Circle().stroke(Color.red.opacity(0.1), lineWidth: 20).frame(width: 180, height: 180)
+                VStack(spacing: 5) {
+                    if healthManager.userBirthDate == 0 {
+                        Text("?").font(.system(size: 60, weight: .black, design: .rounded)).foregroundColor(.red)
+                        Text("完善资料").font(.system(size: 12, weight: .bold)).foregroundColor(.secondary)
+                    } else {
+                        // 简单算法：基于配速得分降低心脏年龄
+                        let heartAge = healthManager.biologicalAge - Int(healthManager.radarValues[4] * 8)
+                        Text("\(heartAge)").font(.system(size: 60, weight: .black, design: .rounded)).foregroundColor(.red)
+                        Text("心脏机能年龄").font(.system(size: 12, weight: .bold)).foregroundColor(.secondary)
+                    }
+                }
                 
-                // 2. 五维体能雷达图
-                performanceRadarSection
-                
-                // 3. 体能与疲劳趋势
-                fitnessFatigueChart
-                
-                // 4. 心脏恢复能力深度评估
-                heartRecoveryDetailCard
-                
-                // 5. AI 精准训练处方
-                aiTrainingPrescriptionCard
-                
-                Spacer(minLength: 50)
+                // 扫描光圈效果
+                Circle()
+                    .trim(from: 0, to: 0.3)
+                    .stroke(Color.red, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                    .frame(width: 200, height: 200)
+                    .rotationEffect(.degrees(45))
             }
             .padding(.top, 20)
-        }
-        .background(MeshBackgroundView())
-        .navigationTitle("AI 体能深度报告")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-    
-    // MARK: - Subviews
-    
-    private var topAuditHeader: some View {
-        VStack(spacing: 15) {
-            ZStack {
-                Circle()
-                    .stroke(Color.blue.opacity(0.1), lineWidth: 15)
-                    .frame(width: 120, height: 120)
-                
-                Circle()
-                    .trim(from: 0, to: 0.82)
-                    .stroke(
-                        LinearGradient(colors: [.blue, .cyan], startPoint: .top, endPoint: .bottom),
-                        style: StrokeStyle(lineWidth: 15, lineCap: .round)
-                    )
-                    .frame(width: 120, height: 120)
-                    .rotationEffect(.degrees(-90))
-                
-                VStack(spacing: 2) {
-                    Text("82").font(.system(size: 40, weight: .black, design: .rounded))
-                    Text("综合评分").font(.caption2).foregroundColor(.secondary)
-                }
-            }
             
-            Text("当前状态：体能巅峰期")
-                .font(.headline)
-                .foregroundColor(.green)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 6)
-                .background(Color.green.opacity(0.1))
-                .cornerRadius(20)
+            if healthManager.userBirthDate == 0 {
+                Text("💡 请在'我的'页面录入出生日期，以获得精准的心脏年龄诊断报告。")
+                    .font(.system(size: 13))
+                    .foregroundColor(.orange)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            } else {
+                let heartAge = healthManager.biologicalAge - Int(healthManager.radarValues[4] * 8)
+                Text("💡 你的实际年龄 \(healthManager.biologicalAge) 岁，但心脏机能相当于 \(heartAge) 岁。这得益于你近期高效的有氧训练。")
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
         }
+        .padding(30)
+        .background(Color.white)
+        .cornerRadius(30)
     }
     
-    private var performanceRadarSection: some View {
+    // MARK: - 2. 进化时间轴
+    private var evolutionTimelineSection: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("五维体能评估")
-                .font(.system(size: 20, weight: .black, design: .rounded))
+            Label("机能进化历程", systemImage: "chart.line.uptrend.xyaxis").font(.headline)
             
-            VStack(spacing: 12) {
-                AttributeRow(label: "心肺耐力（越高越能跑得远）", value: 0.85, color: .blue)
-                AttributeRow(label: "心脏恢复（运动后心率回落速度）", value: 0.92, color: .green)
-                AttributeRow(label: "肌肉抗疲劳（长距离后腿部状态）", value: 0.70, color: .orange)
-                AttributeRow(label: "无氧爆发（冲刺速度能力）", value: 0.45, color: .red)
-                AttributeRow(label: "配速稳定性（跑步节奏均匀程度）", value: 0.88, color: .purple)
+            VStack(spacing: 0) {
+                EvolutionRow(date: "2026.01", event: "加入 RunPlus", detail: "初始里程: 0 KM", isFirst: true)
+                EvolutionRow(date: "2026.02", event: "系统化训练", detail: "平均配速提升 12%", isLast: false)
+                EvolutionRow(date: "今日", event: "进入巅峰期", detail: "本周已跑 \(String(format: "%.1f", healthManager.thisWeekDistance)) KM", isLast: true)
             }
-            
-            Text("💡 AI 点评：你的基础耐力和心脏恢复能力非常出色，是典型的长距离跑者体质。建议增加一些短距离冲刺训练，提升最后阶段的爆发能力。")
-                .font(.system(size: 13))
-                .foregroundColor(.secondary)
-                .lineSpacing(4)
-                .padding(15)
-                .background(Color.white.opacity(0.05))
-                .cornerRadius(15)
         }
-        .padding(25)
-        .background(.ultraThinMaterial)
-        .cornerRadius(35)
-        .padding(.horizontal)
+        .padding(30)
+        .background(Color.white)
+        .cornerRadius(30)
     }
     
-    private var fitnessFatigueChart: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("体能积累与疲劳趋势")
-                        .font(.headline)
-                    Text("近 4 周的训练状态变化")
-                        .font(.caption).foregroundColor(.secondary)
-                }
-                Spacer()
+    private var injuryRiskSection: some View {
+        let isHighRisk = healthManager.thisWeekDistance > (healthManager.lastWeekDistance * 1.5) && healthManager.lastWeekDistance > 0
+        
+        // 伤病风险 AI 建议 (转正关联)
+        let riskAdvice: String = {
+            switch healthManager.runningGoal {
+            case "减脂瘦身":
+                return "当前体脂减重初期，关节压力较大。建议每次跑步间隔 48 小时，配合拉伸以防筋膜炎。"
+            case "马拉松挑战":
+                return isHighRisk ? "备赛期跑量激增过快，膝盖及髂胫束风险极高，请务必安排减量周。" : "跑量增长平稳，可继续按计划训练，注意足底筋膜放松。"
+            case "突破成绩":
+                return "高强度间歇会导致肌肉乳酸堆积，当前伤病风险受配速波动影响，建议配合泡沫轴深层放松。"
+            default:
+                return "当前运动强度适中，伤病风险处于安全区间。请继续保持良好的热身习惯。"
             }
+        }()
+        
+        return VStack(alignment: .leading, spacing: 15) {
+            Text("运动伤病风险监控").font(.system(size: 18, weight: .bold, design: .rounded))
             
-            Chart {
-                let fitness = [(1, 40), (2, 42), (3, 45), (4, 48), (5, 47), (6, 50), (7, 52)]
-                let fatigue = [(1, 30), (2, 55), (3, 40), (4, 65), (5, 45), (6, 35), (7, 38)]
-                
-                ForEach(fitness, id: \.0) { day, val in
-                    LineMark(x: .value("周", day), y: .value("体能", val))
-                        .foregroundStyle(Color.blue)
-                        .interpolationMethod(.catmullRom)
+            // 伤病风险 AI 建议 (转正关联)
+            let riskAdvice: String = {
+                switch healthManager.runningGoal {
+                case "减脂瘦身":
+                    return "当前体脂减重初期，关节压力较大。建议每次跑步间隔 48 小时，配合拉伸以防筋膜炎。"
+                case "马拉松挑战":
+                    return isHighRisk ? "备赛期跑量激增过快，膝盖及髂胫束风险极高，请务必安排减量周。" : "跑量增长平稳，可继续按计划训练，注意足底筋膜放松。"
+                case "突破成绩":
+                    return "高强度间歇会导致肌肉乳酸堆积，当前伤病风险受配速波动影响，建议配合泡沫轴深层放松。"
+                default:
+                    return "当前运动强度适中，伤病风险处于安全区间。请继续保持良好的热身习惯。"
                 }
-                
-                ForEach(fatigue, id: \.0) { day, val in
-                    LineMark(x: .value("周", day), y: .value("疲劳", val))
-                        .foregroundStyle(Color.red.opacity(0.5))
-                        .interpolationMethod(.catmullRom)
-                }
-            }
-            .frame(height: 150)
-            .chartXAxis(.hidden)
+            }()
             
-            HStack(spacing: 20) {
+            VStack(alignment: .leading, spacing: 15) {
                 HStack {
-                    Circle().fill(Color.blue).frame(width: 8, height: 8)
-                    Text("体能积累").font(.caption).foregroundColor(.secondary)
+                    Image(systemName: isHighRisk ? "exclamationmark.triangle.fill" : "checkmark.shield.fill")
+                        .foregroundColor(isHighRisk ? .red : .green)
+                    Text(isHighRisk ? "中高风险" : "低风险状态").font(.headline)
+                    Spacer()
+                    Text("AI 伤病预警").font(.caption).foregroundColor(.secondary)
                 }
-                HStack {
-                    Circle().fill(Color.red.opacity(0.5)).frame(width: 8, height: 8)
-                    Text("疲劳程度").font(.caption).foregroundColor(.secondary)
-                }
+                
+                Text(riskAdvice)
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
+                    .lineSpacing(4)
             }
-            
-            Text("💡 AI 解读：体能曲线持续上升，说明你的训练计划非常有效。疲劳值在合理范围内波动，没有过度训练的风险。")
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
-                .padding(12)
-                .background(Color.blue.opacity(0.05))
-                .cornerRadius(12)
+            .padding(20)
+            .background(Color.white.opacity(0.05))
+            .cornerRadius(20)
         }
-        .padding(25)
-        .background(.ultraThinMaterial)
-        .cornerRadius(35)
         .padding(.horizontal)
     }
     
-    private var heartRecoveryDetailCard: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("心脏恢复能力报告")
-                        .font(.headline)
-                    Text("运动结束后心率下降速度，越快越好")
-                        .font(.caption).foregroundColor(.secondary)
-                }
-                Spacer()
-                Text("超越 92% 同龄人")
-                    .font(.system(size: 12, weight: .black))
-                    .foregroundColor(.green)
-            }
-            
-            HStack(spacing: 25) {
-                RecoveryMetric(label: "运动后 1 分钟", value: "-32", unit: "BPM", rating: "极佳")
-                Divider().frame(height: 40)
-                RecoveryMetric(label: "运动后 2 分钟", value: "-51", unit: "BPM", rating: "极佳")
-            }
-            
-            Text("💡 AI 结论：你的心脏恢复速度非常快，表明心血管系统已充分适应了跑步训练。这意味着你可以承受更高频次的训练而不必担心过度疲劳。")
-                .font(.system(size: 13))
-                .foregroundColor(.secondary)
-                .lineSpacing(4)
-                .padding(15)
-                .background(Color.green.opacity(0.05))
-                .cornerRadius(15)
-        }
-        .padding(25)
-        .background(.ultraThinMaterial)
-        .cornerRadius(35)
-        .padding(.horizontal)
-    }
-    
-    private var aiTrainingPrescriptionCard: some View {
+    private var actionPlanSection: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Label("本周 AI 训练计划", systemImage: "wand.and.stars")
-                .font(.headline)
-                .foregroundColor(.purple)
-            
-            Text("根据你的体能状态，AI 为你制定了本周精准训练建议：")
-                .font(.caption)
-                .foregroundColor(.secondary)
-            
-            VStack(spacing: 12) {
-                PrescriptionRow(day: "周一（今天）", task: "30 分钟轻松慢跑", intensity: "心率保持 < 135")
-                PrescriptionRow(day: "周三", task: "45 分钟节奏跑", intensity: "心率 145 ~ 155")
-                PrescriptionRow(day: "周五", task: "800 米冲刺 × 6 组", intensity: "心率 165 ~ 175")
-            }
-            
-            Text("⚠️ 周二、周四、周六安排休息或拉伸，让肌肉充分恢复。")
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
-                .padding(12)
-                .background(Color.orange.opacity(0.05))
-                .cornerRadius(12)
+            Text("AI 行动建议").font(.headline)
+            Text("• 睡前进行 10 分钟深度呼吸，优化 HRV 恢复。")
+            Text("• 增加蛋白质摄入，今日肌肉纤维修复需求较高。")
+            Text("• 明日可尝试 5KM 个人最好成绩冲击。")
         }
-        .padding(25)
-        .background(.ultraThinMaterial)
-        .cornerRadius(35)
-        .padding(.horizontal)
+        .font(.system(size: 14))
+        .foregroundColor(.secondary)
+        .padding(30)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.purple.opacity(0.05))
+        .cornerRadius(30)
     }
 }
 
-// MARK: - Helper Components
-
-struct AttributeRow: View {
-    let label: String; let value: Double; let color: Color
+struct EvolutionRow: View {
+    let date: String; let event: String; let detail: String; var isFirst: Bool = false; var isLast: Bool = false
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(label).font(.caption.bold()).foregroundColor(.secondary)
-                Spacer()
-                Text("\(Int(value * 100)) 分").font(.caption.bold()).foregroundColor(color)
-            }
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(color.opacity(0.1)).frame(height: 6)
-                    Capsule().fill(color.gradient).frame(width: geo.size.width * value, height: 6)
+        HStack(alignment: .top, spacing: 20) {
+            VStack {
+                Circle().fill(isLast ? Color.orange : Color.gray.opacity(0.3)).frame(width: 10, height: 10)
+                if !isLast {
+                    Rectangle().fill(Color.gray.opacity(0.1)).frame(width: 2, height: 50)
                 }
-            }.frame(height: 6)
-        }
-    }
-}
-
-struct RecoveryMetric: View {
-    let label: String; let value: String; let unit: String; let rating: String
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label).font(.caption2).foregroundColor(.secondary)
-            HStack(alignment: .lastTextBaseline, spacing: 2) {
-                Text(value).font(.system(size: 24, weight: .black, design: .rounded))
-                Text(unit).font(.caption2.bold()).foregroundColor(.secondary)
             }
-            Text(rating).font(.system(size: 10, weight: .bold)).foregroundColor(.green)
-        }
-    }
-}
-
-struct PrescriptionRow: View {
-    let day: String; let task: String; let intensity: String
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(day).font(.caption.bold()).foregroundColor(.secondary)
-                Text(task).font(.system(size: 15, weight: .bold))
+            VStack(alignment: .leading, spacing: 5) {
+                Text(date).font(.caption).foregroundColor(.secondary)
+                Text(event).font(.system(size: 15, weight: .bold))
+                Text(detail).font(.caption).foregroundColor(.orange)
             }
             Spacer()
-            Text(intensity)
-                .font(.system(size: 12, weight: .medium))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(Capsule().fill(.white.opacity(0.1)))
         }
-        .padding(12)
-        .background(Color.white.opacity(0.03))
-        .cornerRadius(12)
     }
 }

@@ -24,6 +24,8 @@
 	<string>Run+ 需要读取您的心率、步数和运动数据，以分析您的跑步能力并为您提供个性化的训练建议。</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Run+ 需要将您的跑步数据存入健康 App，以便您在系统自带的“健康”应用中查看您的运动记录。</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>我们需要将您的精英运动海报保存至相册，方便您分享给好友。</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

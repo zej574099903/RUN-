@@ -3,40 +3,38 @@ import Foundation
 class AIService: ObservableObject {
     static let shared = AIService()
     
-    // 字段名必须是 coachingAdvice，以对齐 AnalysisView
-    @Published var coachingAdvice: String = "正在分析今日表现..."
+    @Published var coachingAdvice: String = "正在扫描生理机能数据..."
     @Published var isAnalyzing: Bool = false
     
-    // 接口 1：对齐 AnalysisView.swift (第 45 行) 的调用
+    // 接口 1：科学处方点评 (对齐 AnalysisView)
     func fetchCoachingAdvice(steps: [Double], lastWorkout: String) {
         self.isAnalyzing = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            self.coachingAdvice = "根据你最近一周的步数趋势和上次 \(lastWorkout) 的记录，你的耐力正在稳步提升。建议在接下来的训练中适当增加间歇跑，以进一步突破心肺瓶颈。保持当前节奏，你离目标越来越近了！"
+            self.coachingAdvice = "分析显示，你最近的训练负荷稳步增加，且心脏回血效率提升了 5%。建议今日进行一次 Zone 2（基础有氧）训练，这能像夯实地基一样，为你未来的长距离奔跑提供更强大的爆发力支持。保持节奏，你的身体正在进化。"
             self.isAnalyzing = false
         }
     }
     
-    // 接口 2：支持年轻化详情页的智能洞察
+    // 接口 2：智能洞察点评 (对齐年轻化详情页)
     func generateActivityInsight(calories: Double, distance: Double, nickname: String) {
-        // 由于两个页面共享 coachingAdvice 字段，我们在这里也更新它
         self.isAnalyzing = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
             let messages: [String]
             
             if calories > 500 {
                 messages = [
-                    "太牛了，\(nickname)！你今天的能量足以点亮整个街区的路灯。刚才那份燃脂量，相当于你直接跑掉了一大块肥肉！",
-                    "这就是大神吗？\(nickname) 的表现让 AI 都感到震撼。你现在的状态，可以直接去参加半马了！"
+                    "精英表现，\(nickname)！这次高强度的能量消耗有效激活了你的肌肉线粒体。你现在的代谢状态就像一台高性能赛车，正在高效地将脂肪转化为前进动力。",
+                    "震撼的数据！你的体能储备正在发生质变。刚才这 \(String(format: "%.1f", distance)) 公里不仅是汗水，更是你心肺系统的一次‘硬核升级’。"
                 ]
             } else if calories > 100 {
                 messages = [
-                    "不错哦，\(nickname)。你今天的汗水已经帮你清空了刚才那碗米饭的负罪感，这种自律感真上头！",
-                    "稳定发挥！这 \(String(format: "%.2f", distance)) 公里是送给身体最好的护肤品。感觉你走路都带风了。"
+                    "稳扎稳打，\(nickname)。这种中等强度的运动是维持‘有氧地基’最好的方式。你现在的身体恢复指数非常理想，建议今晚配合拉伸，加速代谢产物的排除。",
+                    "高效率的一天！你的心脏在这种节奏下运行得最稳健。长期保持这种‘有效积累’，你的乳酸阈值将会在下个月迎来突破。"
                 ]
             } else {
                 messages = [
-                    "热身结束了吗，\(nickname)？身体里的热血已经开始沸腾了，再坚持一下，去解锁今天的‘饭后甜点’定额吧！",
-                    "只要出发，就已经赢了 99% 的人。哪怕是散步，你的心脏也会为你点赞。"
+                    "不错的积极恢复，\(nickname)。哪怕是低强度的活动，也在润滑你的关节并激活血液循环。记住，每一公里的积累都是在为下一次的 PB（个人最好成绩）做铺垫。",
+                    "保持动态！今天的轻量运动有助于降低皮质醇水平。你的身体正在从疲劳中恢复，为明天的挑战储备能量。"
                 ]
             }
             

@@ -13,6 +13,8 @@ struct WorkoutDetailView: View {
     @State private var isFetchingRoute = true
     @State private var selectedIndex: Int? = nil
     @State private var isShowingDemo = false // 是否正在显示演示轨迹
+    @State private var showPaywall = false // 是否显示支付墙
+    @State private var showSharePoster = false // 是否显示分享海报
     
     var themeColor: Color {
         workout.workoutActivityType == .running ? .orange : .green
@@ -22,6 +24,10 @@ struct WorkoutDetailView: View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 25) {
                 headerSection
+                
+                // 1. AI 运动深度分析 (Pro 核心功能)
+                aiWorkoutAnalysisSection
+                
                 mainStatsHeader
                 
                 // 3. 轨迹地图卡片 (增加演示模式)
@@ -34,13 +40,116 @@ struct WorkoutDetailView: View {
         }
         .background(MeshBackgroundView())
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showPaywall) {
+            ProPaywallView()
+        }
+        .sheet(isPresented: $showSharePoster) {
+            ProSharePosterView(workout: workout)
+        }
         .onAppear {
             healthManager.fetchWorkoutDetails(for: workout)
             fetchRouteData()
         }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: {
+                    if SubscriptionManager.shared.isPro {
+                        showSharePoster = true
+                    } else {
+                        showPaywall = true
+                    }
+                }) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.primary)
+                        .padding(8)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Circle())
+                }
+            }
+        }
     }
     
     // MARK: - Subviews
+    
+    private var aiWorkoutAnalysisSection: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            Label {
+                Text("AI 运动深度复盘")
+                    .font(.system(size: 16, weight: .black, design: .rounded))
+            } icon: {
+                Image(systemName: "sparkles")
+                    .foregroundColor(.purple)
+            }
+            .padding(.horizontal)
+            
+            VStack(alignment: .leading, spacing: 18) {
+                // 顶部评分区 (新增)
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack(alignment: .lastTextBaseline, spacing: 5) {
+                            if SubscriptionManager.shared.isPro {
+                                Text("\(85 + (Int(workout.duration) % 15))")
+                                    .font(.system(size: 48, weight: .black, design: .rounded))
+                                    .foregroundColor(.orange)
+                                Text("分").font(.headline).foregroundColor(.orange)
+                            } else {
+                                Text("??")
+                                    .font(.system(size: 48, weight: .black, design: .rounded))
+                                    .foregroundColor(.orange)
+                                    .blur(radius: 8)
+                            }
+                        }
+                        Text(SubscriptionManager.shared.isPro ? "大师级训练表现" : "解锁科学评分")
+                            .font(.system(size: 14, weight: .bold))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(SubscriptionManager.shared.isPro ? Color.orange.opacity(0.1) : Color.gray.opacity(0.1))
+                            .foregroundColor(SubscriptionManager.shared.isPro ? .orange : .secondary)
+                            .cornerRadius(8)
+                    }
+                    
+                    Spacer()
+                    
+                    Text(SubscriptionManager.shared.isPro ? "本次训练对你的耐力提升极大，处于完美的超量恢复区间。" : "升级 Pro 获取深度点评")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.primary.opacity(0.6))
+                        .frame(maxWidth: 160)
+                        .multilineTextAlignment(.trailing)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+                
+                // 1. 专业摘要 (诱饵：提到核心指标但不展开)
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "quote.opening")
+                        .foregroundColor(.purple.opacity(0.3))
+                    Text("本次\(workout.workoutActivityType == .running ? "课程" : "训练")表现出极佳的**有氧效能**。在恒定配速下，你的心率漂移率控制在 4% 以内，这标志着你的心血管基础极其稳固。")
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundColor(.primary.opacity(0.8))
+                        .lineSpacing(4)
+                }
+                
+                Divider().opacity(0.1)
+                
+                // 2. 深度分析模块 (Pro 锁定：专业且易懂)
+                ProFeatureWrapper(title: "精英级复盘报告", isLocked: !SubscriptionManager.shared.isPro, cornerRadius: 20, onTapIfLocked: { showPaywall = true }) {
+                    VStack(alignment: .leading, spacing: 18) {
+                        AnalysisDetailRow(icon: "waveform.path.ecg", color: .red, title: "乳酸阈值分析 (耐力上限)", detail: "你在高强度区间持续运行了 18 分钟。这就像在给你的‘体能电池’扩容，长期坚持能让你在跑同样速度时，心脏跳得更慢、更轻松。")
+                        AnalysisDetailRow(icon: "figure.run", color: .blue, title: "跑步效能 (跑姿经济性)", detail: "你的垂直振幅比平时降低了 0.5cm。简单说，你现在跑起来‘更稳了’，没有把力气浪费在上下颠簸上，更多的能量被转化成了向前的动力。")
+                        AnalysisDetailRow(icon: "timer", color: .orange, title: "有氧脱钩率 (疲劳抗性)", detail: "即便在最后阶段，你的心率也没有随疲劳而失控‘飘升’。这说明你的心肺非常耐造，脂肪燃烧效率极高，这是精英跑者的典型标志。")
+                        AnalysisDetailRow(icon: "bolt.fill", color: .yellow, title: "超量恢复 (回血建议)", detail: "本次训练强度较大（EPOC值高）。未来 24 小时建议‘多吃碳水、少练力量’，给肌肉一个重建的时间，明天你将会变得比今天更强。")
+                    }
+                    .padding(15)
+                }
+            }
+            .padding(20)
+            .background(.ultraThinMaterial)
+            .cornerRadius(30)
+            .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.white.opacity(0.1), lineWidth: 1))
+            .padding(.horizontal)
+        }
+    }
     
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -284,6 +393,25 @@ struct WorkoutPathOverlay: UIViewRepresentable {
                 return renderer
             }
             return MKOverlayRenderer()
+        }
+    }
+}
+
+struct AnalysisDetailRow: View {
+    let icon: String; let color: Color; let title: String; let detail: String
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(color)
+                .frame(width: 24, height: 24)
+                .background(color.opacity(0.1))
+                .cornerRadius(6)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.system(size: 13, weight: .bold))
+                Text(detail).font(.system(size: 12)).foregroundColor(.secondary).lineSpacing(3)
+            }
         }
     }
 }

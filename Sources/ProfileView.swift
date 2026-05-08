@@ -7,6 +7,8 @@ struct ProfileView: View {
     @State private var isEditingProfile = false
     @State private var tempNickname = ""
     
+    @StateObject private var subManager = SubscriptionManager.shared
+    
     var body: some View {
         NavigationView {
             ZStack {
@@ -17,6 +19,10 @@ struct ProfileView: View {
                         careerStatsGrid
                         achievementWall
                         settingsSection
+                        
+                        // 开发者调试模块 (仅测试阶段)
+                        debugSection
+                        
                         Spacer(minLength: 120)
                     }
                     .padding(.horizontal, 20)
@@ -60,10 +66,11 @@ struct ProfileView: View {
     // 其余 StatsGrid, AchievementWall 保持不变...
     var careerStatsGrid: some View {
         HStack(spacing: 15) {
-            StatBox(value: "128", label: "累计天数", icon: "calendar", color: .blue)
-            StatBox(value: "452", label: "累计公里", icon: "figure.run", color: .green)
-            StatBox(value: "12k", label: "累计热量", icon: "flame.fill", color: .red)
+            StatBox(value: "\(healthManager.totalWorkoutDays)", label: "累计天数", icon: "calendar", color: .blue)
+            StatBox(value: String(format: "%.0f", healthManager.totalDistance), label: "累计公里", icon: "figure.run", color: .green)
+            StatBox(value: "\(Int(healthManager.totalCalories / 1000))k", label: "累计热量", icon: "flame.fill", color: .red)
         }
+        .padding(.horizontal)
     }
     var achievementWall: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -100,6 +107,43 @@ struct ProfileView: View {
             Divider().padding(.leading, 60).opacity(0.1)
             SettingsRow(icon: "bell.fill", color: .blue, title: "运动提醒", value: "已开启")
         }.background(.ultraThinMaterial).cornerRadius(30)
+    }
+    
+    var debugSection: some View {
+        VStack(spacing: 15) {
+            HStack {
+                Image(systemName: "ladybug.fill").foregroundColor(.purple)
+                Text("开发者调试模块").font(.system(size: 14, weight: .black))
+                Spacer()
+                Text("仅测试阶段可见").font(.system(size: 10)).foregroundColor(.secondary)
+            }
+            
+            Button(action: {
+                withAnimation(.spring()) {
+                    subManager.togglePro()
+                    UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+                }
+            }) {
+                HStack {
+                    Image(systemName: subManager.isPro ? "person.fill.xmark" : "person.fill.checkmark")
+                    Text(subManager.isPro ? "降级为普通用户" : "一键开启 Pro 会员")
+                        .fontWeight(.bold)
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(subManager.isPro ? Color.red : Color.purple)
+                .cornerRadius(15)
+            }
+            
+            Text("当前身份：\(subManager.isPro ? "Pro 会员" : "免费用户")")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(20)
+        .background(Color.purple.opacity(0.05))
+        .cornerRadius(30)
+        .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.purple.opacity(0.1), lineWidth: 1))
     }
 }
 
@@ -159,14 +203,92 @@ struct ProfileEditView: View {
                         }
                     }
                     
-                    // 3. 自定义选项
+                    // 3. 跑步目的 (转正调查)
+                    VStack(alignment: .leading, spacing: 15) {
+                        Text("跑步目的 (AI 将据此调整处方强度)").font(.system(size: 14, weight: .black)).foregroundColor(.secondary)
+                        
+                        let goals = [
+                            ("减脂瘦身", "flame.fill", Color.orange),
+                            ("健康生活", "heart.fill", Color.red),
+                            ("马拉松挑战", "medal.fill", Color.blue),
+                            ("突破成绩", "bolt.fill", Color.yellow)
+                        ]
+                        
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                            ForEach(goals, id: \.0) { goal, icon, color in
+                                Button {
+                                    healthManager.runningGoal = goal
+                                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                } label: {
+                                    HStack {
+                                        Image(systemName: icon)
+                                            .foregroundColor(healthManager.runningGoal == goal ? .white : color)
+                                        Text(goal)
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundColor(healthManager.runningGoal == goal ? .white : .primary)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 15)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 15)
+                                            .fill(healthManager.runningGoal == goal ? color : Color.gray.opacity(0.1))
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 4. 核心体征参数
+                    VStack(alignment: .leading, spacing: 18) {
+                        Text("身体参数 (影响 AI 诊断准确度)").font(.system(size: 14, weight: .black)).foregroundColor(.secondary)
+                        
+                        VStack(spacing: 0) {
+                            DatePicker("出生日期", selection: Binding(get: { Date(timeIntervalSince1970: healthManager.userBirthDate) }, set: { healthManager.userBirthDate = $0.timeIntervalSince1970 }), displayedComponents: .date)
+                                .environment(\.locale, Locale(identifier: "zh_CN"))
+                                .padding()
+                            
+                            Divider().padding(.leading)
+                            
+                            HStack {
+                                Text("身高")
+                                Spacer()
+                                TextField("175", text: Binding(
+                                    get: { String(format: "%.0f", healthManager.userHeight) },
+                                    set: { if let value = Double($0) { healthManager.userHeight = value } }
+                                ))
+                                    .keyboardType(.decimalPad)
+                                    .multilineTextAlignment(.trailing)
+                                    .frame(width: 80)
+                                Text("CM")
+                            }.padding()
+                            
+                            Divider().padding(.leading)
+                            
+                            HStack {
+                                Text("体重")
+                                Spacer()
+                                TextField("70", text: Binding(
+                                    get: { String(format: "%.0f", healthManager.userWeight) },
+                                    set: { if let value = Double($0) { healthManager.userWeight = value } }
+                                ))
+                                    .keyboardType(.decimalPad)
+                                    .multilineTextAlignment(.trailing)
+                                    .frame(width: 80)
+                                Text("KG")
+                            }.padding()
+                        }
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(20)
+                    }
+                    
+                    // 4. 自定义选项
                     VStack(alignment: .leading, spacing: 15) {
                         Text("或者").font(.system(size: 12, weight: .bold)).foregroundColor(.secondary).frame(maxWidth: .infinity, alignment: .center)
                         
                         PhotosPicker(selection: $avatarItem, matching: .images) {
                             HStack {
                                 Image(systemName: "photo.on.rectangle.angled")
-                                Text("从相册选择照片")
+                                Text("更换头像图片")
                             }
                             .font(.headline)
                             .foregroundColor(.primary)
@@ -210,15 +332,50 @@ struct StatBox: View {
     }
 }
 struct BadgeView: View {
-    let icon: String; let color: Color; let title: String
+    let icon: String
+    let color: Color
+    let title: String
+    
     var body: some View {
         VStack(spacing: 12) {
             ZStack {
-                Circle().fill(LinearGradient(colors: [color.opacity(0.3), color.opacity(0.1)], startPoint: .topLeading, endPoint: .bottomTrailing)).frame(width: 70, height: 70)
-                Circle().stroke(color.opacity(0.2), lineWidth: 2).frame(width: 80, height: 80)
-                Image(systemName: icon).font(.system(size: 28)).foregroundColor(color).shadow(color: color.opacity(0.5), radius: 5, x: 0, y: 3)
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [color.opacity(0.8), color.opacity(0.2)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 70, height: 70)
+                    .overlay(
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    colors: [.white.opacity(0.6), .clear, .black.opacity(0.2)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 3
+                            )
+                    )
+                    .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: 3)
+                
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 55, height: 55)
+                
+                Image(systemName: icon)
+                    .font(.system(size: 24, weight: .black))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.white, color],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
             }
-            Text(title).font(.system(size: 12, weight: .black)).foregroundColor(.primary.opacity(0.8))
+            Text(title).font(.system(size: 11, weight: .bold)).foregroundColor(.primary)
         }
     }
 }
